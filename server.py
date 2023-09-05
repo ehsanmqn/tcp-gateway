@@ -149,6 +149,51 @@ def send_data_to_api(data, imei):
         logging.error(f"Failed to send data to REST API: {str(e)} from IMEI: {imei}")
 
 
+def find_all_positions(data, substring):
+    """
+    Find all positions of a substring in binary data.
+
+    Args:
+    data (bytes): The binary data to search in.
+    substring (bytes): The substring to find.
+
+    Returns:
+    list: A list of positions where the substring is found.
+    """
+    positions = []
+    start = 0
+    while True:
+        index = data.find(substring, start)
+        if index == -1:
+            break
+        positions.append(index)
+        start = index + len(substring)
+    return positions
+
+
+def split_binary_data_by_indexes(data, indexes):
+    """
+    Split binary data based on a list of index positions and return a list of chunks.
+
+    Args:
+    data (bytes): The binary data to split.
+    indexes (list): A list of index positions to split the data at.
+
+    Returns:
+    list: A list of binary chunks.
+    """
+    chunks = []
+    start = 0
+    for index in indexes:
+        if index >= len(data):
+            continue
+        chunks.append(data[start:index])
+        start = index
+    # Add the last chunk from the last index to the end of the data
+    chunks.append(data[start:])
+    return chunks
+
+
 # Function to handle a client connection
 def handle_client(client_socket):
     try:
@@ -192,35 +237,46 @@ def handle_client(client_socket):
         while True:
             # Receive data from the client
             data = client_socket.recv(1024)
+
             if not data:
                 break
 
-            # Separate the header, identifier, payload, and checksum
-            header = data[:4]
-            identifier = data[4:5]
-            payload = data[5:-1]  # Exclude the last byte, which is the checksum
-            checksum = data[-1:]
+            positions = find_all_positions(data, b'\xbd\xbd\xbd\xbd')
 
-            # Check whether received data is heartbeat
-            if identifier.startswith(b'\xF9'):
-                data_buffer = create_heartbeat_response_buffer()
-                client_socket.send(data_buffer)
-                logging.info(f"Heartbeat response has been sent to the device: {imei}")
+            if positions:
+                chunks = split_binary_data_by_indexes(data, positions)
 
-            imei = client_identifiers.get(client_socket, "Unknown")
+                # Print each chunk in hexadecimal format
+                for chunk in chunks:
+                    if len(chunk) > 0:
+                        # Separate the header, identifier, payload, and checksum
+                        header = chunk[:4]
+                        identifier = chunk[4:5]
+                        payload = chunk[5:-1]  # Exclude the last byte, which is the checksum
+                        checksum = chunk[-1:]
 
-            message_type = message_types[binascii.hexlify(identifier).decode()]
-            logging.info(f"[ {message_type} ] message received data from device: "
-                         f"{imei} "
-                         f"{binascii.hexlify(identifier)} "
-                         f"{binascii.hexlify(payload)}"
-                         )
+                        # Check whether received data is heartbeat
+                        if identifier.startswith(b'\xF9'):
+                            data_buffer = create_heartbeat_response_buffer()
+                            client_socket.send(data_buffer)
+                            logging.info(f"Heartbeat response has been sent to the device: {imei}")
 
-            # Send the received data to the REST API
-            try:
-                send_data_to_api(data, imei)
-            except Exception as e:
-                logging.error(f"Failed to send data to REST API: {str(e)} from IMEI: {imei}")
+                        imei = client_identifiers.get(client_socket, "Unknown")
+
+                        message_type = message_types[binascii.hexlify(identifier).decode()]
+                        logging.info(f"[ {message_type} ] message received data from device: "
+                                     f"{imei} "
+                                     f"{binascii.hexlify(identifier)} "
+                                     f"{binascii.hexlify(payload)}"
+                                     )
+
+                        # Send the received data to the REST API
+                        try:
+                            send_data_to_api(chunk, imei)
+                        except Exception as e:
+                            logging.error(f"Failed to send data to REST API: {str(e)} from IMEI: {imei}")
+            else:
+                continue
 
     except Exception as e:
         logging.error(f"Error: {str(e)}")
