@@ -15,7 +15,7 @@ HOST = '0.0.0.0'  # Listen on all available network interfaces
 PORT = 2205
 
 # Define the REST API URL where you want to send the data
-API_URL = 'http://192.168.200.72:9000/api/lorawan/webhook/uplink/gsm'
+API_URL = 'http://lora.dmiot.ir:7000/api/lorawan/webhook/uplink/gsm'
 
 # Dictionary to store client IMEI as identifiers
 client_identifiers = {}
@@ -37,7 +37,8 @@ message_types = {
     "LBE": "Bluetooth Positioning",
     "c0": "Downlink Feedback",
     "28": "Message Status Reporting",
-    "32": "Health Data"
+    "32": "Health Data",
+    "03": "Positioning Reporting"
 }
 
 
@@ -98,6 +99,20 @@ def create_periodic_upload_buffer():
     message_id = b'\x17'
     header = b'\xBD\xBD\xBD\xBD'
     payload = b'\x01\x01\x00\x00\x00\x17\x3b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    data_buffer = header + message_id + payload
+    checksum = calculate_checksum(data_buffer)
+    data_buffer = data_buffer + bytes([checksum])
+    return data_buffer
+
+
+def create_location_setup_buffer():
+    """
+    Function to create the location setup buffer
+    :return:
+    """
+    message_id = b'\xCE'
+    header = b'\xBD\xBD\xBD\xBD'
+    payload = b'\x01\x00\x00\x04\x01\x02\x04\x05'
     data_buffer = header + message_id + payload
     checksum = calculate_checksum(data_buffer)
     data_buffer = data_buffer + bytes([checksum])
@@ -233,6 +248,11 @@ def handle_client(client_socket):
         data_buffer = create_periodic_upload_buffer()
         client_socket.send(data_buffer)
         logging.info(f"Periodic setting has been sent to the device: {imei}")
+
+        # Setup positioning
+        data_buffer = create_location_setup_buffer()
+        client_socket.send(data_buffer)
+        logging.info(f"Positioning setting has been sent to the device: {imei}")
 
         while True:
             # Receive data from the client
