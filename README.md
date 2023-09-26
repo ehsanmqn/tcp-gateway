@@ -1,6 +1,6 @@
 # TCP Server for Receiving Data from W200P 4G Watch
 
-This Python script implements a TCP server for receiving data from a W200P 4G watch. It listens on a specified port, processes incoming data, and sends it to a REST API. The primary use case is to connect a W200P 4G watch to the Thingsboard IoT platform.
+This Python script implements a TCP server for receiving data from an [Oviphone](https://www.oviphone.cn/en/products/) W200P 4G watch. It listens on a specified port, processes incoming data, and sends it to a REST API. The primary use case is to connect a W200P 4G watch to the Thingsboard IoT platform.
 
 ## Prerequisites
 
