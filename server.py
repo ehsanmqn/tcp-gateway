@@ -51,6 +51,7 @@ def generate_little_endian_timestamp():
     """
     # Get the current local time
     current_time = datetime.datetime.utcnow() - datetime.timedelta(hours=1)
+    print(current_time)
 
     # Convert the current time to a Unix timestamp (seconds since epoch)
     timestamp = int(current_time.timestamp())
